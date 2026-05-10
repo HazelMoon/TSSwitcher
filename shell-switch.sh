@@ -41,7 +41,7 @@ smart_uninstall() {
     if pacman -Qq "$target" &> /dev/null; then
         tput cup $(( $(tput lines) - 1 )) 2; echo -e "${CYAN}Removing $target...${RESET}"
         sudo pacman -Rs "$target" --noconfirm < /dev/tty
-        last_cols=0 # Reset redraw trigger
+        last_cols=0
     else
         tput cup $(( $(tput lines) - 1 )) 2; echo -e "${RED}Package $target not found.${RESET}"
         sleep 1.5
@@ -54,7 +54,7 @@ handle_action() {
         pkill -x "noctalia"; pkill -x "dms"; pkill -f "noctalia-shell"
         nohup $cmd >/dev/null 2>&1 & disown
     else
-        clear; echo -e "${CYAN}Installing $pkg via Pacman...${RESET}"
+        clear; echo -e "${CYAN}Installing $pkg...${RESET}"
         if [[ "$pkg" == *"git" ]]; then
             local tmp=$(mktemp -d); git clone "$url" "$tmp" < /dev/tty
             cd "$tmp" && makepkg -si --noconfirm < /dev/tty && cd - > /dev/null && rm -rf "$tmp"
@@ -105,13 +105,23 @@ draw_menu() {
     local sub="Active Shell: $ACTIVE"; tput cup $((start_row + 7)) 0; tput el
     tput cup $((start_row + 7)) $(( (cols - ${#sub}) / 2 )); echo -e "$sub"
 
-    local max_l=20; local m_w=50; local m_pad=$(( (cols - m_w) / 2 ))
     for i in "${!labels[@]}"; do
         tput cup $((start_row + 9 + i)) 0; tput el
-        tput cup $((start_row + 9 + i)) $m_pad
-        [[ "$i" -eq "$selected" ]] && echo -ne "${CYAN}▶ ${RESET}" || echo -ne "  "
-        printf "%-${max_l}s" "${labels[$i]}"
-        printf "%s" "${statuses[$i]}"
+        
+        # Center the label text strictly
+        local label_raw="${labels[$i]}"
+        local cursor_label="  $label_raw"
+        [[ "$i" -eq "$selected" ]] && cursor_label="▶ $label_raw"
+
+        local c_pos=$(( (cols - ${#cursor_label}) / 2 ))
+        tput cup $((start_row + 9 + i)) $c_pos
+        echo -ne "${CYAN}${cursor_label}${RESET}"
+        
+        # Draw status to the side without affecting label centering
+        if [[ -n "${statuses[$i]}" ]]; then
+            echo -ne "  ${statuses[$i]}"
+        fi
+
         tput smacs; tput cup $((start_row + 9 + i)) 0; printf "x"; tput cup $((start_row + 9 + i)) $((cols-1)); printf "x"; tput rmacs
     done
 }
@@ -130,12 +140,12 @@ while true; do
                 1) handle_action "noctalia-git" "https://aur.archlinux.org/noctalia-git.git" "noctalia" "noctalia-git" ;;
                 2) handle_action "dms-shell" "" "dms run" "dms-shell" ;;
                 3) m_sel=0; while true; do
-                    L_MNG=("Uninstall V5" "Uninstall Dank" "Back")
-                    S_MNG=("" "" ""); selected=$m_sel; draw_menu L_MNG S_MNG; read -rsn3 mk < /dev/tty
+                    L_MNG=("Uninstall V4" "Uninstall V5" "Uninstall Dank" "Back")
+                    S_MNG=("" "" "" ""); selected=$m_sel; draw_menu L_MNG S_MNG; read -rsn3 mk < /dev/tty
                     case "$mk" in
-                        $'\x1b[A') ((m_sel--)); [[ $m_sel -lt 0 ]] && m_sel=2 ;;
-                        $'\x1b[B') ((m_sel++)); [[ $m_sel -gt 2 ]] && m_sel=0 ;;
-                        "") case $m_sel in 0) smart_uninstall "noctalia-git" ;; 1) smart_uninstall "dms-shell" ;; 2) break ;; esac ;;
+                        $'\x1b[A') ((m_sel--)); [[ $m_sel -lt 0 ]] && m_sel=3 ;;
+                        $'\x1b[B') ((m_sel++)); [[ $m_sel -gt 3 ]] && m_sel=0 ;;
+                        "") case $m_sel in 0) smart_uninstall "noctalia-shell" ;; 1) smart_uninstall "noctalia-git" ;; 2) smart_uninstall "dms-shell" ;; 3) break ;; esac ;;
                     esac
                    done; selected=3 ;;
                 4) s_sel=0; while true; do
