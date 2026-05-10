@@ -8,6 +8,7 @@ B_PNK="\e[38;5;198m"; B_PUR="\e[38;5;129m"; B_BLU="\e[38;5;26m"
 P_PNK="\e[38;5;198m"; P_YLW="\e[38;5;226m"; P_BLU="\e[38;5;39m"
 A_BLK="\e[38;5;235m"; A_GRY="\e[38;5;246m"; A_WHT="\e[38;5;255m"; A_PUR="\e[38;5;93m"
 
+# State
 current_ascii="default"
 current_flag="trans"
 selected=0
@@ -19,15 +20,36 @@ update_active_shell() {
     else ACTIVE="none"; fi
 }
 
+check_installed() {
+    if command -v "$1" &> /dev/null || [ -d "/etc/xdg/quickshell/$2" ]; then return 0; else return 1; fi
+}
+
 get_status() {
-    local shell_id=$1
-    local install_path=$2
-    local internal_id=$3
-    if command -v "$shell_id" &> /dev/null || [ -d "/etc/xdg/quickshell/$install_path" ]; then
+    if check_installed "$1" "$2"; then
         echo -ne "${GREEN}(INSTALLED)${RESET}"
-        [[ "$ACTIVE" == "$internal_id" ]] && echo -e " ${CYAN}${BOLD}◀ ACTIVE${RESET}" || echo ""
+        [[ "$ACTIVE" == "$3" ]] && echo -e " ${CYAN}${BOLD}◀ ACTIVE${RESET}" || echo ""
     else
         echo -e "${RED}(MISSING)${RESET}"
+    fi
+}
+
+handle_action() {
+    local pkg_name=$1; local repo_url=$2; local run_cmd=$3; local bin_check=$4; local dir_check=$5
+    if check_installed "$bin_check" "$dir_check"; then
+        pkill -x "noctalia"; pkill -x "dms"; pkill -f "noctalia-shell"
+        nohup $run_cmd >/dev/null 2>&1 & disown
+    else
+        clear
+        echo -e "${CYAN}Cloning and Building $pkg_name from AUR...${RESET}"
+        local tmp_dir=$(mktemp -d)
+        git clone "$repo_url" "$tmp_dir" < /dev/tty
+        cd "$tmp_dir" || return
+        
+        makepkg -is --noconfirm < /dev/tty
+        cd - > /dev/null
+        rm -rf "$tmp_dir"
+        echo -e "${GREEN}Installation finished. Press any key to return...${RESET}"
+        read -n1 < /dev/tty
     fi
 }
 
@@ -85,8 +107,7 @@ draw_menu() {
     printf "%$(( (term_cols - 25) / 2 ))s%b\n" "" "$desc_colored"
     printf "%$(( (term_cols - ${#status_line}) / 2 ))s%s\n" "" "$status_line"
 
-    echo ""
-    echo ""
+    echo ""; echo ""
 
     local menu_pad=$(( (term_cols - 40) / 2 ))
     for i in "${!options[@]}"; do
@@ -106,7 +127,7 @@ while true; do
         "Dank Material  $(get_status 'dms' 'dms' 'dank')"
         "Manage / Uninstall Shells"
         "ASCII & Flag Settings"
-        "Exit and Revert"
+        "Exit"
     )
     draw_menu "${main_opts[@]}"
     
@@ -116,34 +137,30 @@ while true; do
         $'\x1b[B') ((selected++)); [ $selected -gt 5 ] && selected=0 ;;
         "") 
             case $selected in
-                0) pkill -x "noctalia"; pkill -x "dms"; nohup qs -c noctalia-shell >/dev/null 2>&1 & disown ;;
-                1) pkill -f "noctalia-shell"; pkill -x "dms"; nohup noctalia >/dev/null 2>&1 & disown ;;
-                2) pkill -x "noctalia"; pkill -f "noctalia-shell"; nohup dms run >/dev/null 2>&1 & disown ;;
-                3) # Manage Shells
+                0) handle_action "noctalia-shell" "https://aur.archlinux.org/noctalia-shell-git.git" "qs -c noctalia-shell" "noctalia-shell" "noctalia-shell" ;;
+                1) handle_action "noctalia" "https://aur.archlinux.org/noctalia-git.git" "noctalia" "noctalia" "noctalia" ;;
+                2) handle_action "dms" "https://aur.archlinux.org/dms-git.git" "dms run" "dms" "dms" ;;
+                3) # Manage Shells Logic
                     m_selected=0
                     while true; do
                         m_opts=("Uninstall V4" "Uninstall V5" "Uninstall Dank" "Back")
-                        selected=$m_selected
-                        draw_menu "${m_opts[@]}"
-                        read -rsn3 mkey < /dev/tty
+                        selected=$m_selected; draw_menu "${m_opts[@]}"; read -rsn3 mkey < /dev/tty
                         case "$mkey" in
                             $'\x1b[A') ((m_selected--)); [ $m_selected -lt 0 ] && m_selected=3 ;;
                             $'\x1b[B') ((m_selected++)); [ $m_selected -gt 3 ] && m_selected=0 ;;
                             "") case $m_selected in
-                                    0) sudo rm -rf /etc/xdg/quickshell/noctalia-shell ;;
-                                    1) sudo rm -f /usr/local/bin/noctalia ;;
-                                    2) sudo rm -f /usr/local/bin/dms ;;
+                                    0) sudo pacman -Rs noctalia-shell-git --noconfirm < /dev/tty ;;
+                                    1) sudo pacman -Rs noctalia-git --noconfirm < /dev/tty ;;
+                                    2) sudo pacman -Rs dms-git --noconfirm < /dev/tty ;;
                                     3) break ;;
                                 esac ;;
                         esac
                     done; selected=3 ;;
-                4) # Settings
+                4) # Settings Logic
                     s_selected=0
                     while true; do
                         s_opts=("ASCII Style: $current_ascii" "Flag: $current_flag" "Back")
-                        selected=$s_selected
-                        draw_menu "${s_opts[@]}"
-                        read -rsn3 skey < /dev/tty
+                        selected=$s_selected; draw_menu "${s_opts[@]}"; read -rsn3 skey < /dev/tty
                         case "$skey" in
                             $'\x1b[A') ((s_selected--)); [ $s_selected -lt 0 ] && s_selected=2 ;;
                             $'\x1b[B') ((s_selected++)); [ $s_selected -gt 2 ] && s_selected=0 ;;
@@ -151,8 +168,7 @@ while true; do
                                     0) [[ "$current_ascii" == "default" ]] && current_ascii="small" || current_ascii="default" ;;
                                     1) f_selected=0; flags=("trans" "enby" "lesbian" "bi" "pan" "ace" "back")
                                         while true; do
-                                            selected=$f_selected
-                                            draw_menu "${flags[@]}"; read -rsn3 fkey < /dev/tty
+                                            selected=$f_selected; draw_menu "${flags[@]}"; read -rsn3 fkey < /dev/tty
                                             case "$fkey" in
                                                 $'\x1b[A') ((f_selected--)); [ $f_selected -lt 0 ] && f_selected=6 ;;
                                                 $'\x1b[B') ((f_selected++)); [ $f_selected -gt 6 ] && f_selected=0 ;;
