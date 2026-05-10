@@ -1,6 +1,5 @@
 #!/bin/bash
 
-# --- Hyfetch Color Palette ---
 RESET="\e[0m"; CYAN="\e[1;36m"; GREEN="\e[32m"; RED="\e[31m"; BOLD="\e[1m"
 T_BLU="\e[38;5;81m"; T_PNK="\e[38;5;211m"; T_WHT="\e[38;5;255m"
 NB_YLW="\e[38;5;226m"; NB_WHT="\e[38;5;255m"; NB_PUR="\e[38;5;93m"; NB_BLK="\e[38;5;236m"
@@ -31,6 +30,26 @@ get_status() {
         [[ "$ACTIVE" == "$3" ]] && echo -e " ${CYAN}${BOLD}◀ ACTIVE${RESET}" || echo ""
     else
         echo -e "${RED}(MISSING)${RESET}"
+    fi
+}
+
+smart_uninstall() {
+    local bin_name=$1
+    local bin_path=$(which "$bin_name" 2>/dev/null)
+    
+    if [[ -z "$bin_path" ]]; then
+        echo -e "${RED}Error: Binary $bin_name not found.${RESET}"
+        sleep 1; return
+    fi
+
+    local pkg_owner=$(pacman -Qo "$bin_path" 2>/dev/null | awk '{print $5}')
+
+    if [[ -n "$pkg_owner" ]]; then
+        echo -e "${CYAN}Found owner: $pkg_owner. Uninstalling...${RESET}"
+        sudo pacman -Rs "$pkg_owner" --noconfirm < /dev/tty
+    else
+        echo -e "${RED}No package owner found. Removing binary manually...${RESET}"
+        sudo rm -f "$bin_path" < /dev/tty
     fi
 }
 
@@ -147,9 +166,9 @@ while true; do
                             $'\x1b[A') ((m_selected--)); [ $m_selected -lt 0 ] && m_selected=3 ;;
                             $'\x1b[B') ((m_selected++)); [ $m_selected -gt 3 ] && m_selected=0 ;;
                             "") case $m_selected in
-                                    0) sudo pacman -Rs noctalia-shell --noconfirm < /dev/tty ;;
-                                    1) sudo pacman -Rs noctalia-git --noconfirm < /dev/tty ;;
-                                    2) sudo pacman -Rs dms-shell-git --noconfirm < /dev/tty ;;
+                                    0) smart_uninstall "noctalia-shell" ;;
+                                    1) smart_uninstall "noctalia" ;;
+                                    2) smart_uninstall "dms" ;;
                                     3) break ;;
                                 esac ;;
                         esac
