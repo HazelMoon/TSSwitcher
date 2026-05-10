@@ -1,6 +1,5 @@
 #!/bin/bash
 
-# --- Hyfetch Color Palette ---
 RESET="\e[0m"; CYAN="\e[1;36m"; GREEN="\e[32m"; RED="\e[31m"; BOLD="\e[1m"
 T_BLU="\e[38;5;81m"; T_PNK="\e[38;5;211m"; T_WHT="\e[38;5;255m"
 NB_YLW="\e[38;5;226m"; NB_WHT="\e[38;5;255m"; NB_PUR="\e[38;5;93m"; NB_BLK="\e[38;5;236m"
@@ -37,11 +36,16 @@ get_status() {
 smart_uninstall() {
     local bin_name=$1
     local bin_path=$(which "$bin_name" 2>/dev/null)
-    if [[ -z "$bin_path" ]]; then return; fi
+    if [[ -z "$bin_path" ]]; then 
+        echo -e "${RED}Error: Binary $bin_name not found.${RESET}"
+        sleep 1; return
+    fi
     local pkg_owner=$(pacman -Qo "$bin_path" 2>/dev/null | awk '{print $5}')
     if [[ -n "$pkg_owner" ]]; then
+        echo -e "${CYAN}Uninstalling $pkg_owner...${RESET}"
         sudo pacman -Rs "$pkg_owner" --noconfirm < /dev/tty
     else
+        echo -e "${RED}Manual removal...${RESET}"
         sudo rm -f "$bin_path" < /dev/tty
     fi
 }
@@ -53,23 +57,28 @@ handle_action() {
         nohup $run_cmd >/dev/null 2>&1 & disown
     else
         clear
-        local tmp_dir=$(mktemp -d)
-        git clone "$repo_url" "$tmp_dir" < /dev/tty
-        cd "$tmp_dir" || return
-        makepkg -si --noconfirm < /dev/tty
-        cd - > /dev/null; rm -rf "$tmp_dir"
-        read -n1 -s -r -p "Installation finished. Press any key..." < /dev/tty
+        if [[ "$pkg_name" == "dms-shell" ]]; then
+            echo -e "${CYAN}Installing $pkg_name from repo...${RESET}"
+            sudo pacman -S dms-shell --noconfirm < /dev/tty
+        else
+            echo -e "${CYAN}Cloning and Building $pkg_name...${RESET}"
+            local tmp_dir=$(mktemp -d)
+            git clone "$repo_url" "$tmp_dir" < /dev/tty
+            cd "$tmp_dir" || return
+            makepkg -si --noconfirm < /dev/tty
+            cd - > /dev/null; rm -rf "$tmp_dir"
+        fi
+        read -n1 -s -r -p "Finished. Press any key to return..." < /dev/tty
     fi
 }
 
 draw_menu() {
     local options=("$@")
-    local cols=$(tput cols)
-    local rows=$(tput lines)
+    local cols=$(tput cols); local rows=$(tput lines)
     update_active_shell
     clear
 
-    # 1. Draw Global Border
+    # 1. Global Border Drawing
     tput cup 0 0; printf "╔"; for ((i=0; i<cols-2; i++)); do printf "═"; done; printf "╗"
     for ((r=1; r<rows-1; r++)); do
         tput cup $r 0; printf "║"
@@ -77,11 +86,11 @@ draw_menu() {
     done
     tput cup $((rows-1)) 0; printf "╚"; for ((i=0; i<cols-2; i++)); do printf "═"; done; printf "╝"
 
-    # 2. Content Calculation
+    # 2. Centering Logic
     local content_height=$(( 10 + ${#options[@]} ))
     local start_row=$(( (rows - content_height) / 2 ))
 
-    # 3. Draw ASCII
+    # 3. ASCII Art
     local L1='████████╗███████╗███████╗   ███████╗██╗    ██╗██╗████████╗ ██████╗██╗  ██╗███████╗██████╗ '
     local L2='╚══██╔══╝██╔════╝██╔════╝   ██╔════╝██║    ██║██║╚══██╔══╝██╔════╝██║  ██║██╔════╝██╔══██╗'
     local L3='   ██║   ███████╗███████╗   ███████╗██║ █╗ ██║██║   ██║   ██║     ███████║█████╗  ██████╔╝'
@@ -105,12 +114,15 @@ draw_menu() {
         echo -e "${C[$i]}${!line_var}${RESET}"
     done
 
-    # 4. Draw Status
+    # 4. Status and Description
+    local desc="the boredom of a TGirl v1"
     local status="Active Shell: $ACTIVE"
+    tput cup $((start_row + 6)) $(( (cols - ${#desc}) / 2 ))
+    echo -e "$desc"
     tput cup $((start_row + 7)) $(( (cols - ${#status}) / 2 ))
     echo -e "$status"
 
-    # 5. Draw Menu
+    # 5. Menu Options
     for i in "${!options[@]}"; do
         local opt_clean=$(echo -e "${options[$i]}" | sed 's/\x1b\[[0-9;]*m//g')
         local opt_pad=$(( (cols - ${#opt_clean} - 4) / 2 ))
@@ -121,10 +133,10 @@ draw_menu() {
             echo -e "  ${options[$i]}"
         fi
     done
-    tput cup $((rows-1)) $((cols-1)) # Park cursor at corner
+    tput cup $((rows-1)) $((cols-1))
 }
 
-# Main Loop
+# Main Interaction Loop
 while true; do
     update_active_shell
     main_opts=(
@@ -145,7 +157,7 @@ while true; do
             case $selected in
                 0) handle_action "noctalia-shell" "https://aur.archlinux.org/noctalia-shell.git" "qs -c noctalia-shell" "noctalia-shell" "noctalia-shell" ;;
                 1) handle_action "noctalia" "https://aur.archlinux.org/noctalia-git.git" "noctalia" "noctalia" "noctalia" ;;
-                2) handle_action "dms-shell" "https://aur.archlinux.org/dms-shell-git.git" "dms run" "dms" "dms" ;;
+                2) handle_action "dms-shell" "repo" "dms run" "dms" "dms" ;;
                 3) m_selected=0
                     while true; do
                         m_opts=("Uninstall V4" "Uninstall V5" "Uninstall Dank" "Back")
@@ -169,7 +181,7 @@ while true; do
                             $'\x1b[A') ((s_selected--)); [ $s_selected -lt 0 ] && s_selected=2 ;;
                             $'\x1b[B') ((s_selected++)); [ $s_selected -gt 2 ] && s_selected=0 ;;
                             "") case $s_selected in
-                                    0) [[ "$current_ascii" == "default" ]] && current_ascii="small" || current_ascii="default" ;;
+                                    0) [[ "$current_ascii" == "default" ]] && current_ascii="WIP" || current_ascii="default" ;;
                                     1) f_selected=0; flags=("trans" "enby" "lesbian" "bi" "pan" "ace" "back")
                                         while true; do
                                             selected=$f_selected; draw_menu "${flags[@]}"; read -rsn3 fkey < /dev/tty
