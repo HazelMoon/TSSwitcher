@@ -56,7 +56,6 @@ draw_ui() {
     local term_cols=$(tput cols)
     local term_lines=$(tput lines)
 
-    # ASCII strings using single quotes to preserve backslashes
     local a1=' _________  ________  '
     local a2='|  _   _  |/  ___  _| '
     local a3='|_/ | | \_|\ `--. `--. '
@@ -71,7 +70,6 @@ draw_ui() {
     local b5='  ____) | \ V  V /| | || (__| | | |  __/ |   '
     local b6=' |_____/   \_/\_/ |_|\__\___|_| |_|\___|_|   '
 
-    local desc_plain="the boredom of a TGirl v1"
     local desc_colored="the boredom of a ${BLUE}T${PINK}G${WHITE}i${PINK}r${BLUE}l${RESET} v1"
     local status_line="Active Shell: $ORIGINAL"
     
@@ -82,7 +80,6 @@ draw_ui() {
     local pad=$(( (term_cols - ascii_width) / 2 ))
     [ $pad -lt 0 ] && pad=0
 
-    # Using %s to prevent printf from interpreting the backslashes
     printf "%${pad}s${PURPLE}%s${ORANGE}%s${RESET}\n" "" "$a1" "$b1"
     printf "%${pad}s${PURPLE}%s${ORANGE}%s${RESET}\n" "" "$a2" "$b2"
     printf "%${pad}s${PURPLE}%s${ORANGE}%s${RESET}\n" "" "$a3" "$b3"
@@ -91,8 +88,14 @@ draw_ui() {
     printf "%${pad}s${PURPLE}%s${ORANGE}%s${RESET}\n" "" "$a6" "$b6"
 
     echo ""
-    printf "%*s%b\n" $(( (term_cols + 24) / 2 )) "" "$desc_colored"
-    printf "%*s%s\n\n" $(( (term_cols + ${#status_line}) / 2 )) "" "$status_line"
+    
+    # FIX: Use a fixed width for the description centering (25 chars)
+    local desc_pad=$(( (term_cols - 25) / 2 ))
+    printf "%${desc_pad}s%b\n" "" "$desc_colored"
+    
+    # FIX: Centering the status line based on its actual length
+    local status_pad=$(( (term_cols - ${#status_line}) / 2 ))
+    printf "%${status_pad}s%s\n\n" "" "$status_line"
 
     local menu_width=38
     local menu_pad=$(( (term_cols - menu_width) / 2 ))
