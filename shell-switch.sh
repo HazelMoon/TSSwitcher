@@ -12,8 +12,7 @@ A_BLK="\e[38;5;235m"; A_GRY="\e[38;5;246m"; A_WHT="\e[38;5;255m"; A_PUR="\e[38;5
 # State
 current_flag="trans"
 selected=0
-last_cols=0
-last_rows=0
+last_cols=0; last_rows=0
 
 update_active_shell() {
     if pgrep -x "noctalia" > /dev/null; then ACTIVE="v5"
@@ -42,7 +41,7 @@ smart_uninstall() {
     if pacman -Qq "$target" &> /dev/null; then
         tput cup $(( $(tput lines) - 1 )) 2; echo -e "${CYAN}Removing $target...${RESET}"
         sudo pacman -Rs "$target" --noconfirm < /dev/tty
-        last_cols=0
+        last_cols=0 # Reset redraw trigger
     else
         tput cup $(( $(tput lines) - 1 )) 2; echo -e "${RED}Package $target not found.${RESET}"
         sleep 1.5
@@ -55,7 +54,7 @@ handle_action() {
         pkill -x "noctalia"; pkill -x "dms"; pkill -f "noctalia-shell"
         nohup $cmd >/dev/null 2>&1 & disown
     else
-        clear; echo -e "${CYAN}Installing $pkg...${RESET}"
+        clear; echo -e "${CYAN}Installing $pkg via Pacman...${RESET}"
         if [[ "$pkg" == *"git" ]]; then
             local tmp=$(mktemp -d); git clone "$url" "$tmp" < /dev/tty
             cd "$tmp" && makepkg -si --noconfirm < /dev/tty && cd - > /dev/null && rm -rf "$tmp"
@@ -67,9 +66,8 @@ handle_action() {
 }
 
 draw_menu() {
-    # $1 = Array of labels, $2 = Array of statuses
-    local labels=("${!1}")
-    local statuses=("${!2}")
+    local -n labels=$1
+    local -n statuses=$2
     local cols=$(tput cols); local rows=$(tput lines)
     update_active_shell
 
@@ -79,7 +77,7 @@ draw_menu() {
         tput cup $((rows-1)) 0; printf "m"; for ((i=0; i<cols-2; i++)); do printf "q"; done; printf "j"
         for ((r=1; r<rows-1; r++)); do tput cup $r 0; printf "x"; tput cup $r $((cols-1)); printf "x"; done
         tput rmacs
-        local content_height=$(( 10 + ${#labels[@]} )); start_row=$(( (rows - content_height) / 2 ))
+        local h=$(( 10 + ${#labels[@]} )); start_row=$(( (rows - h) / 2 ))
         
         local L1='████████╗███████╗███████╗   ███████╗██╗    ██╗██╗████████╗ ██████╗██╗  ██╗███████╗██████╗ '
         local L2='╚══██╔══╝██╔════╝██╔════╝   ██╔════╝██║    ██║██║╚══██╔══╝██╔════╝██║  ██║██╔════╝██╔══██╗'
@@ -97,26 +95,24 @@ draw_menu() {
             "ace")     C=("$A_BLK" "$A_GRY" "$A_WHT" "$A_WHT" "$A_PUR" "$A_PUR") ;;
         esac
 
-        local ascii_pad=$(( (cols - 86) / 2 ))
+        local pad=$(( (cols - 86) / 2 ))
         for i in {0..5}; do
-            local line_var="L$((i+1))"; tput cup $((start_row + i)) $ascii_pad
-            echo -e "${C[$i]}${!line_var}${RESET}"
+            local v="L$((i+1))"; tput cup $((start_row + i)) $pad; echo -e "${C[$i]}${!v}${RESET}"
         done
         last_cols=$cols; last_rows=$rows
     fi
 
-    local sub_h="Active Shell: $ACTIVE"; tput cup $((start_row + 7)) 0; tput el
-    tput cup $((start_row + 7)) $(( (cols - ${#sub_h}) / 2 )); echo -e "$sub_h"
+    local sub="Active Shell: $ACTIVE"; tput cup $((start_row + 7)) 0; tput el
+    tput cup $((start_row + 7)) $(( (cols - ${#sub}) / 2 )); echo -e "$sub"
 
-    local max_l=20; local m_width=50; local m_pad=$(( (cols - m_width) / 2 ))
+    local max_l=20; local m_w=50; local m_pad=$(( (cols - m_w) / 2 ))
     for i in "${!labels[@]}"; do
         tput cup $((start_row + 9 + i)) 0; tput el
         tput cup $((start_row + 9 + i)) $m_pad
         [[ "$i" -eq "$selected" ]] && echo -ne "${CYAN}▶ ${RESET}" || echo -ne "  "
         printf "%-${max_l}s" "${labels[$i]}"
-        printf "%s" "${statuses[$i]}" # Fix for invalid format character error
-        tput smacs; tput cup $((start_row + 9 + i)) 0; printf "x"
-        tput cup $((start_row + 9 + i)) $((cols-1)); printf "x"; tput rmacs
+        printf "%s" "${statuses[$i]}"
+        tput smacs; tput cup $((start_row + 9 + i)) 0; printf "x"; tput cup $((start_row + 9 + i)) $((cols-1)); printf "x"; tput rmacs
     done
 }
 
@@ -125,7 +121,7 @@ tput civis; trap 'tput cnorm; clear; exit' SIGINT SIGTERM
 while true; do
     L_MAIN=("Noctalia V4" "Noctalia V5" "Dank Material" "Manage Shells" "Settings" "Exit")
     S_MAIN=("$(get_status_text 'noctalia-shell' 'v4')" "$(get_status_text 'noctalia-git' 'v5')" "$(get_status_text 'dms-shell' 'dank')" "" "" "")
-    draw_menu L_MAIN[@] S_MAIN[@]; read -rsn3 key < /dev/tty
+    draw_menu L_MAIN S_MAIN; read -rsn3 key < /dev/tty
     case "$key" in
         $'\x1b[A') ((selected--)); [[ $selected -lt 0 ]] && selected=5 ;;
         $'\x1b[B') ((selected++)); [[ $selected -gt 5 ]] && selected=0 ;;
@@ -135,7 +131,7 @@ while true; do
                 2) handle_action "dms-shell" "" "dms run" "dms-shell" ;;
                 3) m_sel=0; while true; do
                     L_MNG=("Uninstall V5" "Uninstall Dank" "Back")
-                    S_MNG=("" "" ""); selected=$m_sel; draw_menu L_MNG[@] S_MNG[@]; read -rsn3 mk < /dev/tty
+                    S_MNG=("" "" ""); selected=$m_sel; draw_menu L_MNG S_MNG; read -rsn3 mk < /dev/tty
                     case "$mk" in
                         $'\x1b[A') ((m_sel--)); [[ $m_sel -lt 0 ]] && m_sel=2 ;;
                         $'\x1b[B') ((m_sel++)); [[ $m_sel -gt 2 ]] && m_sel=0 ;;
@@ -144,7 +140,7 @@ while true; do
                    done; selected=3 ;;
                 4) s_sel=0; while true; do
                     L_SET=("Flag" "Back")
-                    S_SET=("($current_flag)" ""); selected=$s_sel; draw_menu L_SET[@] S_SET[@]; read -rsn3 sk < /dev/tty
+                    S_SET=("($current_flag)" ""); selected=$s_sel; draw_menu L_SET S_SET; read -rsn3 sk < /dev/tty
                     case "$sk" in
                         $'\x1b[A') ((s_sel--)); [[ $s_sel -lt 0 ]] && s_sel=1 ;;
                         $'\x1b[B') ((s_sel++)); [[ $s_sel -gt 1 ]] && s_sel=0 ;;
@@ -152,7 +148,7 @@ while true; do
                                 0) f_sel=0; f_list=("trans" "enby" "lesbian" "bi" "pan" "ace")
                                    while true; do
                                        L_FLG=("Trans" "Enby" "Lesbian" "Bi" "Pan" "Ace" "Back")
-                                       S_FLG=("" "" "" "" "" "" ""); selected=$f_sel; draw_menu L_FLG[@] S_FLG[@]; read -rsn3 fk < /dev/tty
+                                       S_FLG=("" "" "" "" "" "" ""); selected=$f_sel; draw_menu L_FLG S_FLG; read -rsn3 fk < /dev/tty
                                        case "$fk" in
                                            $'\x1b[A') ((f_sel--)); [[ $f_sel -lt 0 ]] && f_sel=6 ;;
                                            $'\x1b[B') ((f_sel++)); [[ $f_sel -gt 6 ]] && f_sel=0 ;;
