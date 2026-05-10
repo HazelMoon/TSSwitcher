@@ -68,6 +68,7 @@ draw_ui() {
     local b5="  ____) | \ V  V /| | || (__| | | |  __/ |   "
     local b6=" |_____/   \_/\_/ |_|\__\___|_| |_|\___|_|   "
 
+    local desc_plain="the boredom of a TGirl v1"
     local desc_colored="the boredom of a ${BLUE}T${PINK}G${WHITE}i${PINK}r${BLUE}l${RESET} v1"
     local status_line="Active Shell: $ORIGINAL"
     
@@ -85,12 +86,11 @@ draw_ui() {
     printf "%${pad}s${PURPLE}%s${ORANGE}%s${RESET}\n" "" "$a6" "$b6"
 
     echo ""
-    local desc_pad=$(( (term_cols - 24) / 2 ))
-    printf "%${desc_pad}s%b\n" "" "$desc_colored"
-    local status_pad=$(( (term_cols - ${#status_line}) / 2 ))
-    printf "%${status_pad}s%s\n\n" "" "$status_line"
+    printf "%*s%b\n" $(( (term_cols + 24) / 2 )) "" "$desc_colored"
+    printf "%*s%s\n\n" $(( (term_cols + ${#status_line}) / 2 )) "" "$status_line"
 
-    local menu_pad=$(( (term_cols - 35) / 2 ))
+    local menu_width=38
+    local menu_pad=$(( (term_cols - menu_width) / 2 ))
     for i in "${!options[@]}"; do
         if [ "$i" -eq 3 ]; then echo ""; fi
         if [ "$i" -eq "$selected" ]; then
@@ -118,27 +118,23 @@ while true; do
     case "$key" in
         $'\x1b[A') ((selected--)); [ "$selected" -lt 0 ] && selected=4 ;;
         $'\x1b[B') ((selected++)); [ "$selected" -gt 4 ] && selected=0 ;;
-        "") break ;;
+        "") 
+            case $selected in
+                0) ! is_installed "v4" && manage_pkg "install" "v4"; qs -c noctalia-shell > /dev/null 2>&1 &; disown; clear; exit ;;
+                1) ! is_installed "v5" && manage_pkg "install" "v5"; noctalia > /dev/null 2>&1 &; disown; clear; exit ;;
+                2) ! is_installed "dank" && manage_pkg "install" "dank"; dms run > /dev/null 2>&1 &; disown; clear; exit ;;
+                3)
+                    clear
+                    echo "1. Uninstall V4 | 2. Uninstall V5 | 3. Uninstall Dank | 4. Back"
+                    read -p "Selection: " uchoice
+                    case $uchoice in
+                        1) manage_pkg "remove" "v4" ;;
+                        2) manage_pkg "remove" "v5" ;;
+                        3) manage_pkg "remove" "dank" ;;
+                    esac
+                    ;;
+                4) revert_shell ;;
+            esac
+            ;;
     esac
 done
-
-case $selected in
-    0) ! is_installed "v4" && manage_pkg "install" "v4"; qs -c noctalia-shell > /dev/null 2>&1 & ;;
-    1) ! is_installed "v5" && manage_pkg "install" "v5"; noctalia > /dev/null 2>&1 & ;;
-    2) ! is_installed "dank" && manage_pkg "install" "dank"; dms run > /dev/null 2>&1 & ;;
-    3)
-        clear
-        echo "1. Uninstall V4 | 2. Uninstall V5 | 3. Uninstall Dank | 4. Back"
-        read -p "Selection: " uchoice
-        case $uchoice in
-            1) manage_pkg "remove" "v4" ;;
-            2) manage_pkg "remove" "v5" ;;
-            3) manage_pkg "remove" "dank" ;;
-        esac
-        exec "$0" ;;
-    4) revert_shell ;;
-esac
-
-disown
-clear
-exit
