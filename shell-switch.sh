@@ -1,5 +1,6 @@
 #!/bin/bash
 
+# --- Hyfetch Color Palette ---
 RESET="\e[0m"; CYAN="\e[1;36m"; GREEN="\e[32m"; RED="\e[31m"; BOLD="\e[1m"
 T_BLU="\e[38;5;81m"; T_PNK="\e[38;5;211m"; T_WHT="\e[38;5;255m"
 NB_YLW="\e[38;5;226m"; NB_WHT="\e[38;5;255m"; NB_PUR="\e[38;5;93m"; NB_BLK="\e[38;5;236m"
@@ -8,6 +9,7 @@ B_PNK="\e[38;5;198m"; B_PUR="\e[38;5;129m"; B_BLU="\e[38;5;26m"
 P_PNK="\e[38;5;198m"; P_YLW="\e[38;5;226m"; P_BLU="\e[38;5;39m"
 A_BLK="\e[38;5;235m"; A_GRY="\e[38;5;246m"; A_WHT="\e[38;5;255m"; A_PUR="\e[38;5;93m"
 
+# State
 current_flag="trans"
 selected=0
 last_cols=0; last_rows=0
@@ -39,7 +41,7 @@ smart_uninstall() {
     if pacman -Qq "$target" &> /dev/null; then
         tput cup $(( $(tput lines) - 1 )) 2; echo -e "${CYAN}Removing $target...${RESET}"
         sudo pacman -Rs "$target" --noconfirm < /dev/tty
-        last_cols=0 # Force total redraw after package change
+        last_cols=0 
     fi
 }
 
@@ -66,14 +68,13 @@ draw_menu() {
     local cols=$(tput cols); local rows=$(tput lines)
     update_active_shell
 
-    # Initial Border and ASCII Draw
     if [ "$cols" -ne "$last_cols" ] || [ "$rows" -ne "$last_rows" ]; then
         clear; tput smacs
         tput cup 0 0; printf "l"; for ((i=0; i<cols-2; i++)); do printf "q"; done; printf "k"
         tput cup $((rows-1)) 0; printf "m"; for ((i=0; i<cols-2; i++)); do printf "q"; done; printf "j"
         for ((r=1; r<rows-1; r++)); do tput cup $r 0; printf "x"; tput cup $r $((cols-1)); printf "x"; done
         tput rmacs
-        local h=$(( 10 + 8 )); start_row=$(( (rows - h) / 2 ))
+        local h=$(( 12 + 8 )); start_row=$(( (rows - h) / 2 ))
         
         local L1='████████╗███████╗███████╗   ███████╗██╗    ██╗██╗████████╗ ██████╗██╗  ██╗███████╗██████╗ '
         local L2='╚══██╔══╝██╔════╝██╔════╝   ██╔════╝██║    ██║██║╚══██╔══╝██╔════╝██║  ██║██╔════╝██╔══██╗'
@@ -95,27 +96,34 @@ draw_menu() {
         for i in {0..5}; do
             local v="L$((i+1))"; tput cup $((start_row + i)) $pad; echo -e "${C[$i]}${!v}${RESET}"
         done
+        
+        # Colorized Subtitle
+        local sub_plain="the boredom of a TGirl v1"
+        local sub_colored="the boredom of a ${T_BLU}T${T_PNK}G${T_WHT}i${T_PNK}r${T_BLU}l${RESET} v1"
+        tput cup $((start_row + 6)) $(( (cols - ${#sub_plain}) / 2 )); echo -e "$sub_colored"
+        
         last_cols=$cols; last_rows=$rows
     fi
 
-    # Sub-header
-    local sub="Active Shell: $ACTIVE"; tput cup $((start_row + 7)) 0; tput el
-    tput cup $((start_row + 7)) $(( (cols - ${#sub}) / 2 )); echo -e "$sub"
+    local act="Active Shell: $ACTIVE"
+    tput cup $((start_row + 7)) 0; tput el; tput cup $((start_row + 7)) $(( (cols - ${#act}) / 2 )); echo -e "$act"
 
-    # WIPE MENU AREA (Prevents overlap from previous menus)
+    # Wipe menu area to handle overlapping sub-menus
     for ((line=0; line<8; line++)); do
         tput cup $((start_row + 9 + line)) 1; tput el
         tput smacs; tput cup $((start_row + 9 + line)) $((cols-1)); printf "x"; tput rmacs
     done
 
-    # Draw Current Labels/Statuses
     for i in "${!labels[@]}"; do
         local label_raw="${labels[$i]}"
         local cursor_label="  $label_raw"
         [[ "$i" -eq "$selected" ]] && cursor_label="▶ $label_raw"
+        
         local c_pos=$(( (cols - ${#cursor_label}) / 2 ))
         tput cup $((start_row + 9 + i)) $c_pos
         echo -ne "${CYAN}${cursor_label}${RESET}"
+        
+        # Append status on the side
         [[ -n "${statuses[$i]}" ]] && echo -ne "  ${statuses[$i]}"
     done
 }
