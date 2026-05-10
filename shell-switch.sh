@@ -1,5 +1,6 @@
 #!/bin/bash
 
+# --- Hyfetch Color Palette ---
 RESET="\e[0m"; CYAN="\e[1;36m"; GREEN="\e[32m"; RED="\e[31m"; BOLD="\e[1m"
 T_BLU="\e[38;5;81m"; T_PNK="\e[38;5;211m"; T_WHT="\e[38;5;255m"
 NB_YLW="\e[38;5;226m"; NB_WHT="\e[38;5;255m"; NB_PUR="\e[38;5;93m"; NB_BLK="\e[38;5;236m"
@@ -37,15 +38,14 @@ smart_uninstall() {
     local bin_name=$1
     local bin_path=$(which "$bin_name" 2>/dev/null)
     if [[ -z "$bin_path" ]]; then 
+        tput cup $(( $(tput lines) - 1 )) 2
         echo -e "${RED}Error: Binary $bin_name not found.${RESET}"
-        sleep 1; return
+        sleep 1.5; return
     fi
     local pkg_owner=$(pacman -Qo "$bin_path" 2>/dev/null | awk '{print $5}')
     if [[ -n "$pkg_owner" ]]; then
-        echo -e "${CYAN}Uninstalling $pkg_owner...${RESET}"
         sudo pacman -Rs "$pkg_owner" --noconfirm < /dev/tty
     else
-        echo -e "${RED}Manual removal...${RESET}"
         sudo rm -f "$bin_path" < /dev/tty
     fi
 }
@@ -58,17 +58,15 @@ handle_action() {
     else
         clear
         if [[ "$pkg_name" == "dms-shell" ]]; then
-            echo -e "${CYAN}Installing $pkg_name from repo...${RESET}"
             sudo pacman -S dms-shell --noconfirm < /dev/tty
         else
-            echo -e "${CYAN}Cloning and Building $pkg_name...${RESET}"
             local tmp_dir=$(mktemp -d)
             git clone "$repo_url" "$tmp_dir" < /dev/tty
             cd "$tmp_dir" || return
             makepkg -si --noconfirm < /dev/tty
             cd - > /dev/null; rm -rf "$tmp_dir"
         fi
-        read -n1 -s -r -p "Finished. Press any key to return..." < /dev/tty
+        read -n1 -s -r -p "Finished. Press any key..." < /dev/tty
     fi
 }
 
@@ -78,7 +76,7 @@ draw_menu() {
     update_active_shell
     clear
 
-    # 1. Global Border Drawing
+    # Draw Global Border
     tput cup 0 0; printf "╔"; for ((i=0; i<cols-2; i++)); do printf "═"; done; printf "╗"
     for ((r=1; r<rows-1; r++)); do
         tput cup $r 0; printf "║"
@@ -86,11 +84,11 @@ draw_menu() {
     done
     tput cup $((rows-1)) 0; printf "╚"; for ((i=0; i<cols-2; i++)); do printf "═"; done; printf "╝"
 
-    # 2. Centering Logic
+    # Centering logic
     local content_height=$(( 10 + ${#options[@]} ))
     local start_row=$(( (rows - content_height) / 2 ))
 
-    # 3. ASCII Art
+    # ASCII Lines
     local L1='████████╗███████╗███████╗   ███████╗██╗    ██╗██╗████████╗ ██████╗██╗  ██╗███████╗██████╗ '
     local L2='╚══██╔══╝██╔════╝██╔════╝   ██╔════╝██║    ██║██║╚══██╔══╝██╔════╝██║  ██║██╔════╝██╔══██╗'
     local L3='   ██║   ███████╗███████╗   ███████╗██║ █╗ ██║██║   ██║   ██║     ███████║█████╗  ██████╔╝'
@@ -114,29 +112,19 @@ draw_menu() {
         echo -e "${C[$i]}${!line_var}${RESET}"
     done
 
-    # 4. Status and Description
-    local desc="the boredom of a TGirl v1"
     local status="Active Shell: $ACTIVE"
-    tput cup $((start_row + 6)) $(( (cols - ${#desc}) / 2 ))
-    echo -e "$desc"
     tput cup $((start_row + 7)) $(( (cols - ${#status}) / 2 ))
     echo -e "$status"
 
-    # 5. Menu Options
     for i in "${!options[@]}"; do
         local opt_clean=$(echo -e "${options[$i]}" | sed 's/\x1b\[[0-9;]*m//g')
         local opt_pad=$(( (cols - ${#opt_clean} - 4) / 2 ))
         tput cup $((start_row + 9 + i)) $opt_pad
-        if [ "$i" -eq "$selected" ]; then
-            echo -e "${CYAN}▶ ${options[$i]}${RESET}"
-        else
-            echo -e "  ${options[$i]}"
-        fi
+        [[ "$i" -eq "$selected" ]] && echo -e "${CYAN}▶ ${options[$i]}${RESET}" || echo -e "  ${options[$i]}"
     done
     tput cup $((rows-1)) $((cols-1))
 }
 
-# Main Interaction Loop
 while true; do
     update_active_shell
     main_opts=(
@@ -163,8 +151,8 @@ while true; do
                         m_opts=("Uninstall V4" "Uninstall V5" "Uninstall Dank" "Back")
                         selected=$m_selected; draw_menu "${m_opts[@]}"; read -rsn3 mkey < /dev/tty
                         case "$mkey" in
-                            $'\x1b[A') ((m_selected--)); [ $m_selected -lt 0 ] && m_selected=3 ;;
-                            $'\x1b[B') ((m_selected++)); [ $m_selected -gt 3 ] && m_selected=0 ;;
+                            $'\x1b[A') ((m_selected--)); [[ $m_selected -lt 0 ]] && m_selected=3 ;;
+                            $'\x1b[B') ((m_selected++)); [[ $m_selected -gt 3 ]] && m_selected=0 ;;
                             "") case $m_selected in
                                     0) smart_uninstall "noctalia-shell" ;;
                                     1) smart_uninstall "noctalia" ;;
@@ -178,16 +166,16 @@ while true; do
                         s_opts=("ASCII Style: $current_ascii" "Flag: $current_flag" "Back")
                         selected=$s_selected; draw_menu "${s_opts[@]}"; read -rsn3 skey < /dev/tty
                         case "$skey" in
-                            $'\x1b[A') ((s_selected--)); [ $s_selected -lt 0 ] && s_selected=2 ;;
-                            $'\x1b[B') ((s_selected++)); [ $s_selected -gt 2 ] && s_selected=0 ;;
+                            $'\x1b[A') ((s_selected--)); [[ $s_selected -lt 0 ]] && s_selected=2 ;;
+                            $'\x1b[B') ((s_selected++)); [[ $s_selected -gt 2 ]] && s_selected=0 ;;
                             "") case $s_selected in
-                                    0) [[ "$current_ascii" == "default" ]] && current_ascii="WIP" || current_ascii="default" ;;
+                                    0) [[ "$current_ascii" == "default" ]] && current_ascii="small" || current_ascii="default" ;;
                                     1) f_selected=0; flags=("trans" "enby" "lesbian" "bi" "pan" "ace" "back")
                                         while true; do
                                             selected=$f_selected; draw_menu "${flags[@]}"; read -rsn3 fkey < /dev/tty
                                             case "$fkey" in
-                                                $'\x1b[A') ((f_selected--)); [ $f_selected -lt 0 ] && f_selected=6 ;;
-                                                $'\x1b[B') ((f_selected++)); [ $f_selected -gt 6 ] && f_selected=0 ;;
+                                                $'\x1b[A') ((f_selected--)); [[ $f_selected -lt 0 ]] && f_selected=6 ;;
+                                                $'\x1b[B') ((f_selected++)); [[ $f_selected -gt 6 ]] && f_selected=0 ;;
                                                 "") [[ $f_selected -eq 6 ]] && break; current_flag="${flags[$f_selected]}"; break ;;
                                             esac
                                         done; s_selected=1 ;;
