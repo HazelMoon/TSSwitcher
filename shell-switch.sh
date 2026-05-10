@@ -1,5 +1,6 @@
 #!/bin/bash
 
+# --- Hyfetch Color Palette ---
 RESET="\e[0m"; CYAN="\e[1;36m"; GREEN="\e[32m"; RED="\e[31m"; BOLD="\e[1m"
 T_BLU="\e[38;5;81m"; T_PNK="\e[38;5;211m"; T_WHT="\e[38;5;255m"
 NB_YLW="\e[38;5;226m"; NB_WHT="\e[38;5;255m"; NB_PUR="\e[38;5;93m"; NB_BLK="\e[38;5;236m"
@@ -40,12 +41,11 @@ handle_action() {
         nohup $run_cmd >/dev/null 2>&1 & disown
     else
         clear
-        echo -e "${CYAN}Cloning and Building $pkg_name from AUR...${RESET}"
+        echo -e "${CYAN}Cloning and Building $pkg_name...${RESET}"
         local tmp_dir=$(mktemp -d)
         git clone "$repo_url" "$tmp_dir" < /dev/tty
         cd "$tmp_dir" || return
-        
-        makepkg -is --noconfirm < /dev/tty
+        makepkg -si --noconfirm < /dev/tty
         cd - > /dev/null
         rm -rf "$tmp_dir"
         echo -e "${GREEN}Installation finished. Press any key to return...${RESET}"
@@ -103,10 +103,8 @@ draw_menu() {
     [ $pad -lt 0 ] && pad=0
 
     draw_ascii "$pad"
-    echo ""
-    printf "%$(( (term_cols - 25) / 2 ))s%b\n" "" "$desc_colored"
+    echo ""; printf "%$(( (term_cols - 25) / 2 ))s%b\n" "" "$desc_colored"
     printf "%$(( (term_cols - ${#status_line}) / 2 ))s%s\n" "" "$status_line"
-
     echo ""; echo ""
 
     local menu_pad=$(( (term_cols - 40) / 2 ))
@@ -137,10 +135,10 @@ while true; do
         $'\x1b[B') ((selected++)); [ $selected -gt 5 ] && selected=0 ;;
         "") 
             case $selected in
-                0) handle_action "noctalia-shell" "https://aur.archlinux.org/noctalia-shell-git.git" "qs -c noctalia-shell" "noctalia-shell" "noctalia-shell" ;;
+                0) handle_action "noctalia-shell" "https://aur.archlinux.org/noctalia-shell.git" "qs -c noctalia-shell" "noctalia-shell" "noctalia-shell" ;;
                 1) handle_action "noctalia" "https://aur.archlinux.org/noctalia-git.git" "noctalia" "noctalia" "noctalia" ;;
-                2) handle_action "dms" "https://aur.archlinux.org/dms-git.git" "dms run" "dms" "dms" ;;
-                3) # Manage Shells Logic
+                2) handle_action "dms-shell" "https://aur.archlinux.org/dms-shell-git.git" "dms run" "dms" "dms" ;;
+                3) 
                     m_selected=0
                     while true; do
                         m_opts=("Uninstall V4" "Uninstall V5" "Uninstall Dank" "Back")
@@ -149,14 +147,14 @@ while true; do
                             $'\x1b[A') ((m_selected--)); [ $m_selected -lt 0 ] && m_selected=3 ;;
                             $'\x1b[B') ((m_selected++)); [ $m_selected -gt 3 ] && m_selected=0 ;;
                             "") case $m_selected in
-                                    0) sudo pacman -Rs noctalia-shell-git --noconfirm < /dev/tty ;;
+                                    0) sudo pacman -Rs noctalia-shell --noconfirm < /dev/tty ;;
                                     1) sudo pacman -Rs noctalia-git --noconfirm < /dev/tty ;;
-                                    2) sudo pacman -Rs dms-git --noconfirm < /dev/tty ;;
+                                    2) sudo pacman -Rs dms-shell-git --noconfirm < /dev/tty ;;
                                     3) break ;;
                                 esac ;;
                         esac
                     done; selected=3 ;;
-                4) # Settings Logic
+                4) 
                     s_selected=0
                     while true; do
                         s_opts=("ASCII Style: $current_ascii" "Flag: $current_flag" "Back")
