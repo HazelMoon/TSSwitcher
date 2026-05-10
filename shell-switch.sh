@@ -28,7 +28,9 @@ get_status() {
 }
 
 revert_shell() {
-    pkill -f "noctalia|quickshell|qs|dms"
+    pkill -x "noctalia"
+    pkill -f "noctalia-shell"
+    pkill -x "dms"
     case $ORIGINAL in
         "v4") qs -c noctalia-shell > /dev/null 2>&1 & ;;
         "v5") noctalia > /dev/null 2>&1 & ;;
@@ -101,7 +103,6 @@ draw_ui() {
     done
 }
 
-pkill -f "noctalia|quickshell|qs|dank"
 selected=0
 
 while true; do
@@ -122,14 +123,17 @@ while true; do
             case $selected in
                 0) 
                     ! is_installed "v4" && manage_pkg "install" "v4"
+                    pkill -x "noctalia"; pkill -x "dms"
                     qs -c noctalia-shell > /dev/null 2>&1 & 
                     disown && clear && exit ;;
                 1) 
                     ! is_installed "v5" && manage_pkg "install" "v5"
+                    pkill -f "noctalia-shell"; pkill -x "dms"
                     noctalia > /dev/null 2>&1 & 
                     disown && clear && exit ;;
                 2) 
                     ! is_installed "dank" && manage_pkg "install" "dank"
+                    pkill -x "noctalia"; pkill -f "noctalia-shell"
                     dms run > /dev/null 2>&1 & 
                     disown && clear && exit ;;
                 3)
