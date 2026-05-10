@@ -8,7 +8,6 @@ B_PNK="\e[38;5;198m"; B_PUR="\e[38;5;129m"; B_BLU="\e[38;5;26m"
 P_PNK="\e[38;5;198m"; P_YLW="\e[38;5;226m"; P_BLU="\e[38;5;39m"
 A_BLK="\e[38;5;235m"; A_GRY="\e[38;5;246m"; A_WHT="\e[38;5;255m"; A_PUR="\e[38;5;93m"
 
-# State
 current_ascii="default"
 current_flag="trans"
 selected=0
@@ -36,19 +35,11 @@ get_status() {
 smart_uninstall() {
     local bin_name=$1
     local bin_path=$(which "$bin_name" 2>/dev/null)
-    
-    if [[ -z "$bin_path" ]]; then
-        echo -e "${RED}Error: Binary $bin_name not found.${RESET}"
-        sleep 1; return
-    fi
-
+    if [[ -z "$bin_path" ]]; then return; fi
     local pkg_owner=$(pacman -Qo "$bin_path" 2>/dev/null | awk '{print $5}')
-
     if [[ -n "$pkg_owner" ]]; then
-        echo -e "${CYAN}Found owner: $pkg_owner. Uninstalling...${RESET}"
         sudo pacman -Rs "$pkg_owner" --noconfirm < /dev/tty
     else
-        echo -e "${RED}No package owner found. Removing binary manually...${RESET}"
         sudo rm -f "$bin_path" < /dev/tty
     fi
 }
@@ -60,34 +51,31 @@ handle_action() {
         nohup $run_cmd >/dev/null 2>&1 & disown
     else
         clear
-        echo -e "${CYAN}Cloning and Building $pkg_name...${RESET}"
         local tmp_dir=$(mktemp -d)
         git clone "$repo_url" "$tmp_dir" < /dev/tty
         cd "$tmp_dir" || return
         makepkg -si --noconfirm < /dev/tty
-        cd - > /dev/null
-        rm -rf "$tmp_dir"
-        echo -e "${GREEN}Installation finished. Press any key to return...${RESET}"
-        read -n1 < /dev/tty
+        cd - > /dev/null; rm -rf "$tmp_dir"
+        read -n1 -p "Done. Press any key..." < /dev/tty
     fi
 }
 
 draw_ascii() {
     local pad=$1
     if [[ "$current_ascii" == "default" ]]; then
-        local L1='████████╗███████╗███████╗   ███████╗██╗    ██╗██╗████████╗ ██████╗██╗  ██╗███████╗██████╗ '
-        local L2='╚══██╔══╝██╔════╝██╔════╝   ██╔════╝██║    ██║██║╚══██╔══╝██╔════╝██║  ██║██╔════╝██╔══██╗'
-        local L3='   ██║   ███████╗███████╗   ███████╗██║ █╗ ██║██║   ██║   ██║     ███████║█████╗  ██████╔╝'
-        local L4='   ██║   ╚════██║╚════██║   ╚════██║██║███╗██║██║   ██║   ██║     ██╔══██║██╔══╝  ██╔══██╗'
-        local L5='   ██║   ███████║███████║   ███████║╚███╔███╔╝██║   ██║   ╚██████╗██║  ██║███████╗██║  ██║'
-        local L6='   ╚═╝   ╚══════╝╚══════╝   ╚══════╝ ╚══╝╚══╝ ╚═╝   ╚═╝    ╚═════╝╚═╝  ╚═╝╚══════╝╚═╝  ╚═╝'
+        L1='████████╗███████╗███████╗   ███████╗██╗    ██╗██╗████████╗ ██████╗██╗  ██╗███████╗██████╗ '
+        L2='╚══██╔══╝██╔════╝██╔════╝   ██╔════╝██║    ██║██║╚══██╔══╝██╔════╝██║  ██║██╔════╝██╔══██╗'
+        L3='   ██║   ███████╗███████╗   ███████╗██║ █╗ ██║██║   ██║   ██║     ███████║█████╗  ██████╔╝'
+        L4='   ██║   ╚════██║╚════██║   ╚════██║██║███╗██║██║   ██║   ██║     ██╔══██║██╔══╝  ██╔══██╗'
+        L5='   ██║   ███████║███████║   ███████║╚███╔███╔╝██║   ██║   ╚██████╗██║  ██║███████╗██║  ██║'
+        L6='   ╚═╝   ╚══════╝╚══════╝   ╚══════╝ ╚══╝╚══╝ ╚═╝   ╚═╝    ╚═════╝╚═╝  ╚═╝╚══════╝╚═╝  ╚═╝'
     else
-        local L1='████████╗███████╗███████╗'
-        local L2='╚══██╔══╝██╔════╝██╔════╝'
-        local L3='   ██║   ███████╗███████╗'
-        local L4='   ██║   ╚════██║╚════██║'
-        local L5='   ██║   ███████║███████║'
-        local L6='   ╚═╝   ╚══════╝╚══════╝'
+        L1='         ████████╗███████╗███████╗         '
+        L2='         ╚══██╔══╝██╔════╝██╔════╝         '
+        L3='            ██║   ███████╗███████╗         '
+        L4='            ██║   ╚════██║╚════██║         '
+        L5='            ██║   ███████║███████║         '
+        L6='            ╚═╝   ╚══════╝╚══════╝         '
     fi
 
     case $current_flag in
@@ -101,39 +89,47 @@ draw_ascii() {
 
     for i in {0..5}; do
         local line_var="L$((i+1))"
-        printf "%${pad}s%b%s${RESET}\n" "" "${C[$i]}" "${!line_var}"
+        printf "║ %${pad}s%b%s${RESET} %$((pad+2))s ║\n" "" "${C[$i]}" "${!line_var}" ""
     done
 }
 
 draw_menu() {
     local options=("$@")
     local term_cols=$(tput cols 2>/dev/null || echo 80)
-    local term_lines=$(tput lines 2>/dev/null || echo 24)
-    update_active_shell
-    local desc_colored="the boredom of a ${T_BLU}T${T_PNK}G${T_WHT}i${T_PNK}r${T_BLU}l${RESET} v1"
-    local status_line="Active Shell: $ACTIVE"
+    local inner_width=90
+    local pad=$(( (inner_width - 80) / 2 ))
     
+    update_active_shell
     clear
-    for ((i=0; i<$(( (term_lines / 2) - 12 )); i++)); do echo ""; done
-
-    local ascii_width=80
-    [[ "$current_ascii" == "small" ]] && ascii_width=25
-    local pad=$(( (term_cols - ascii_width) / 2 ))
-    [ $pad -lt 0 ] && pad=0
+    
+    # Top Border
+    printf "╔"
+    for ((i=0; i<inner_width+4; i++)); do printf "═"; done
+    printf "╗\n"
 
     draw_ascii "$pad"
-    echo ""; printf "%$(( (term_cols - 25) / 2 ))s%b\n" "" "$desc_colored"
-    printf "%$(( (term_cols - ${#status_line}) / 2 ))s%s\n" "" "$status_line"
-    echo ""; echo ""
+    
+    local desc="the boredom of a TGirl v1"
+    local status="Active Shell: $ACTIVE"
+    printf "║ %$(( (inner_width - 15) / 2 ))s%b%$(( (inner_width - 13) / 2 ))s ║\n" "" "${T_BLU}T${T_PNK}G${T_WHT}i${T_PNK}r${T_BLU}l${RESET} v1" ""
+    printf "║ %$(( (inner_width - ${#status}) / 2 ))s%s%$(( (inner_width - ${#status}) / 2 ))s ║\n" "" "$status" ""
+    printf "║ %$inner_width s ║\n" ""
 
-    local menu_pad=$(( (term_cols - 40) / 2 ))
+    # Menu Options
     for i in "${!options[@]}"; do
+        local opt_raw=$(echo "${options[$i]}" | sed 's/\\e\[[0-9;]*m//g') # Strip colors for length calc
+        local len=${#opt_raw}
         if [ "$i" -eq "$selected" ]; then
-            printf "%${menu_pad}s${CYAN} ▶  %b${RESET}\n" "" "${options[$i]}"
+            printf "║    ${CYAN}▶ %b${RESET} %$(( inner_width - len - 6 ))s ║\n" "${options[$i]}" ""
         else
-            printf "%${menu_pad}s   %b\n" "" "${options[$i]}"
+            printf "║      %b %$(( inner_width - len - 6 ))s ║\n" "${options[$i]}" ""
         fi
     done
+
+    # Bottom Border
+    printf "╚"
+    for ((i=0; i<inner_width+4; i++)); do printf "═"; done
+    printf "╝\n"
 }
 
 while true; do
@@ -142,8 +138,8 @@ while true; do
         "V4 Legacy      $(get_status 'noctalia-shell' 'noctalia-shell' 'v4')"
         "V5 Testing     $(get_status 'noctalia' 'noctalia' 'v5')"
         "Dank Material  $(get_status 'dms' 'dms' 'dank')"
-        "Manage / Uninstall Shells"
-        "ASCII & Flag Settings"
+        "Manage Shells"
+        "Settings"
         "Exit"
     )
     draw_menu "${main_opts[@]}"
@@ -157,8 +153,7 @@ while true; do
                 0) handle_action "noctalia-shell" "https://aur.archlinux.org/noctalia-shell.git" "qs -c noctalia-shell" "noctalia-shell" "noctalia-shell" ;;
                 1) handle_action "noctalia" "https://aur.archlinux.org/noctalia-git.git" "noctalia" "noctalia" "noctalia" ;;
                 2) handle_action "dms-shell" "https://aur.archlinux.org/dms-shell-git.git" "dms run" "dms" "dms" ;;
-                3) 
-                    m_selected=0
+                3) m_selected=0
                     while true; do
                         m_opts=("Uninstall V4" "Uninstall V5" "Uninstall Dank" "Back")
                         selected=$m_selected; draw_menu "${m_opts[@]}"; read -rsn3 mkey < /dev/tty
@@ -173,8 +168,7 @@ while true; do
                                 esac ;;
                         esac
                     done; selected=3 ;;
-                4) 
-                    s_selected=0
+                4) s_selected=0
                     while true; do
                         s_opts=("ASCII Style: $current_ascii" "Flag: $current_flag" "Back")
                         selected=$s_selected; draw_menu "${s_opts[@]}"; read -rsn3 skey < /dev/tty
