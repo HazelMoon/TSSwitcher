@@ -1,6 +1,5 @@
 #!/bin/bash
 
-# --- Hyfetch Color Palette ---
 RESET="\e[0m"; CYAN="\e[1;36m"; GREEN="\e[32m"; RED="\e[31m"; BOLD="\e[1m"
 T_BLU="\e[38;5;81m"; T_PNK="\e[38;5;211m"; T_WHT="\e[38;5;255m"
 NB_YLW="\e[38;5;226m"; NB_WHT="\e[38;5;255m"; NB_PUR="\e[38;5;93m"; NB_BLK="\e[38;5;236m"
@@ -9,7 +8,6 @@ B_PNK="\e[38;5;198m"; B_PUR="\e[38;5;129m"; B_BLU="\e[38;5;26m"
 P_PNK="\e[38;5;198m"; P_YLW="\e[38;5;226m"; P_BLU="\e[38;5;39m"
 A_BLK="\e[38;5;235m"; A_GRY="\e[38;5;246m"; A_WHT="\e[38;5;255m"; A_PUR="\e[38;5;93m"
 
-# State
 current_flag="trans"
 selected=0
 last_cols=0; last_rows=0
@@ -41,10 +39,7 @@ smart_uninstall() {
     if pacman -Qq "$target" &> /dev/null; then
         tput cup $(( $(tput lines) - 1 )) 2; echo -e "${CYAN}Removing $target...${RESET}"
         sudo pacman -Rs "$target" --noconfirm < /dev/tty
-        last_cols=0
-    else
-        tput cup $(( $(tput lines) - 1 )) 2; echo -e "${RED}Package $target not found.${RESET}"
-        sleep 1.5
+        last_cols=0 # Force total redraw after package change
     fi
 }
 
@@ -71,13 +66,14 @@ draw_menu() {
     local cols=$(tput cols); local rows=$(tput lines)
     update_active_shell
 
+    # Initial Border and ASCII Draw
     if [ "$cols" -ne "$last_cols" ] || [ "$rows" -ne "$last_rows" ]; then
         clear; tput smacs
         tput cup 0 0; printf "l"; for ((i=0; i<cols-2; i++)); do printf "q"; done; printf "k"
         tput cup $((rows-1)) 0; printf "m"; for ((i=0; i<cols-2; i++)); do printf "q"; done; printf "j"
         for ((r=1; r<rows-1; r++)); do tput cup $r 0; printf "x"; tput cup $r $((cols-1)); printf "x"; done
         tput rmacs
-        local h=$(( 10 + ${#labels[@]} )); start_row=$(( (rows - h) / 2 ))
+        local h=$(( 10 + 8 )); start_row=$(( (rows - h) / 2 ))
         
         local L1='████████╗███████╗███████╗   ███████╗██╗    ██╗██╗████████╗ ██████╗██╗  ██╗███████╗██████╗ '
         local L2='╚══██╔══╝██╔════╝██╔════╝   ██╔════╝██║    ██║██║╚══██╔══╝██╔════╝██║  ██║██╔════╝██╔══██╗'
@@ -102,27 +98,25 @@ draw_menu() {
         last_cols=$cols; last_rows=$rows
     fi
 
+    # Sub-header
     local sub="Active Shell: $ACTIVE"; tput cup $((start_row + 7)) 0; tput el
     tput cup $((start_row + 7)) $(( (cols - ${#sub}) / 2 )); echo -e "$sub"
 
+    # WIPE MENU AREA (Prevents overlap from previous menus)
+    for ((line=0; line<8; line++)); do
+        tput cup $((start_row + 9 + line)) 1; tput el
+        tput smacs; tput cup $((start_row + 9 + line)) $((cols-1)); printf "x"; tput rmacs
+    done
+
+    # Draw Current Labels/Statuses
     for i in "${!labels[@]}"; do
-        tput cup $((start_row + 9 + i)) 0; tput el
-        
-        # Center the label text strictly
         local label_raw="${labels[$i]}"
         local cursor_label="  $label_raw"
         [[ "$i" -eq "$selected" ]] && cursor_label="▶ $label_raw"
-
         local c_pos=$(( (cols - ${#cursor_label}) / 2 ))
         tput cup $((start_row + 9 + i)) $c_pos
         echo -ne "${CYAN}${cursor_label}${RESET}"
-        
-        # Draw status to the side without affecting label centering
-        if [[ -n "${statuses[$i]}" ]]; then
-            echo -ne "  ${statuses[$i]}"
-        fi
-
-        tput smacs; tput cup $((start_row + 9 + i)) 0; printf "x"; tput cup $((start_row + 9 + i)) $((cols-1)); printf "x"; tput rmacs
+        [[ -n "${statuses[$i]}" ]] && echo -ne "  ${statuses[$i]}"
     done
 }
 
@@ -140,12 +134,12 @@ while true; do
                 1) handle_action "noctalia-git" "https://aur.archlinux.org/noctalia-git.git" "noctalia" "noctalia-git" ;;
                 2) handle_action "dms-shell" "" "dms run" "dms-shell" ;;
                 3) m_sel=0; while true; do
-                    L_MNG=("Uninstall V4" "Uninstall V5" "Uninstall Dank" "Back")
-                    S_MNG=("" "" "" ""); selected=$m_sel; draw_menu L_MNG S_MNG; read -rsn3 mk < /dev/tty
+                    L_MNG=("Uninstall V5" "Uninstall Dank" "Back")
+                    S_MNG=("" "" ""); selected=$m_sel; draw_menu L_MNG S_MNG; read -rsn3 mk < /dev/tty
                     case "$mk" in
-                        $'\x1b[A') ((m_sel--)); [[ $m_sel -lt 0 ]] && m_sel=3 ;;
-                        $'\x1b[B') ((m_sel++)); [[ $m_sel -gt 3 ]] && m_sel=0 ;;
-                        "") case $m_sel in 0) smart_uninstall "noctalia-shell" ;; 1) smart_uninstall "noctalia-git" ;; 2) smart_uninstall "dms-shell" ;; 3) break ;; esac ;;
+                        $'\x1b[A') ((m_sel--)); [[ $m_sel -lt 0 ]] && m_sel=2 ;;
+                        $'\x1b[B') ((m_sel++)); [[ $m_sel -gt 2 ]] && m_sel=0 ;;
+                        "") case $m_sel in 0) smart_uninstall "noctalia-git" ;; 1) smart_uninstall "dms-shell" ;; 2) break ;; esac ;;
                     esac
                    done; selected=3 ;;
                 4) s_sel=0; while true; do
