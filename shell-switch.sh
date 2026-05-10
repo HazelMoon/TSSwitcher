@@ -23,18 +23,11 @@ get_status() {
     local shell_id=$1
     local install_path=$2
     local internal_id=$3
-    local label=""
-    
     if command -v "$shell_id" &> /dev/null || [ -d "/etc/xdg/quickshell/$install_path" ]; then
-        label="${GREEN}(INSTALLED)${RESET}"
+        echo -ne "${GREEN}(INSTALLED)${RESET}"
+        [[ "$ACTIVE" == "$internal_id" ]] && echo -e " ${CYAN}${BOLD}◀ ACTIVE${RESET}" || echo ""
     else
-        label="${RED}(MISSING)${RESET}"
-    fi
-
-    if [[ "$ACTIVE" == "$internal_id" ]]; then
-        echo -e "$label ${CYAN}${BOLD}◀ ACTIVE${RESET}"
-    else
-        echo -e "$label"
+        echo -e "${RED}(MISSING)${RESET}"
     fi
 }
 
@@ -105,55 +98,72 @@ draw_menu() {
     done
 }
 
-# Main Execution Loop
 while true; do
     update_active_shell
     main_opts=(
         "V4 Legacy      $(get_status 'noctalia-shell' 'noctalia-shell' 'v4')"
         "V5 Testing     $(get_status 'noctalia' 'noctalia' 'v5')"
         "Dank Material  $(get_status 'dms' 'dms' 'dank')"
-        "Settings"
-        "Exit"
+        "Manage / Uninstall Shells"
+        "ASCII & Flag Settings"
+        "Exit and Revert"
     )
     draw_menu "${main_opts[@]}"
     
     read -rsn3 key < /dev/tty
     case "$key" in
-        $'\x1b[A') ((selected--)); [ $selected -lt 0 ] && selected=4 ;;
-        $'\x1b[B') ((selected++)); [ $selected -gt 4 ] && selected=0 ;;
+        $'\x1b[A') ((selected--)); [ $selected -lt 0 ] && selected=5 ;;
+        $'\x1b[B') ((selected++)); [ $selected -gt 5 ] && selected=0 ;;
         "") 
             case $selected in
                 0) pkill -x "noctalia"; pkill -x "dms"; nohup qs -c noctalia-shell >/dev/null 2>&1 & disown ;;
                 1) pkill -f "noctalia-shell"; pkill -x "dms"; nohup noctalia >/dev/null 2>&1 & disown ;;
                 2) pkill -x "noctalia"; pkill -f "noctalia-shell"; nohup dms run >/dev/null 2>&1 & disown ;;
-                3) 
-                    selected=0
+                3) # Manage Shells
+                    m_selected=0
                     while true; do
-                        sub_opts=("ASCII: $current_ascii" "Flag: $current_flag" "Back")
-                        draw_menu "${sub_opts[@]}"
+                        m_opts=("Uninstall V4" "Uninstall V5" "Uninstall Dank" "Back")
+                        selected=$m_selected
+                        draw_menu "${m_opts[@]}"
+                        read -rsn3 mkey < /dev/tty
+                        case "$mkey" in
+                            $'\x1b[A') ((m_selected--)); [ $m_selected -lt 0 ] && m_selected=3 ;;
+                            $'\x1b[B') ((m_selected++)); [ $m_selected -gt 3 ] && m_selected=0 ;;
+                            "") case $m_selected in
+                                    0) sudo rm -rf /etc/xdg/quickshell/noctalia-shell ;;
+                                    1) sudo rm -f /usr/local/bin/noctalia ;;
+                                    2) sudo rm -f /usr/local/bin/dms ;;
+                                    3) break ;;
+                                esac ;;
+                        esac
+                    done; selected=3 ;;
+                4) # Settings
+                    s_selected=0
+                    while true; do
+                        s_opts=("ASCII Style: $current_ascii" "Flag: $current_flag" "Back")
+                        selected=$s_selected
+                        draw_menu "${s_opts[@]}"
                         read -rsn3 skey < /dev/tty
                         case "$skey" in
-                            $'\x1b[A') ((selected--)); [ $selected -lt 0 ] && selected=2 ;;
-                            $'\x1b[B') ((selected++)); [ $selected -gt 2 ] && selected=0 ;;
-                            "") 
-                                case $selected in
+                            $'\x1b[A') ((s_selected--)); [ $s_selected -lt 0 ] && s_selected=2 ;;
+                            $'\x1b[B') ((s_selected++)); [ $s_selected -gt 2 ] && s_selected=0 ;;
+                            "") case $s_selected in
                                     0) [[ "$current_ascii" == "default" ]] && current_ascii="small" || current_ascii="default" ;;
-                                    1) 
-                                        f_selected=0; flags=("trans" "enby" "lesbian" "bi" "pan" "ace" "back")
+                                    1) f_selected=0; flags=("trans" "enby" "lesbian" "bi" "pan" "ace" "back")
                                         while true; do
+                                            selected=$f_selected
                                             draw_menu "${flags[@]}"; read -rsn3 fkey < /dev/tty
                                             case "$fkey" in
                                                 $'\x1b[A') ((f_selected--)); [ $f_selected -lt 0 ] && f_selected=6 ;;
                                                 $'\x1b[B') ((f_selected++)); [ $f_selected -gt 6 ] && f_selected=0 ;;
                                                 "") [[ $f_selected -eq 6 ]] && break; current_flag="${flags[$f_selected]}"; break ;;
                                             esac
-                                            selected=$f_selected
-                                        done; selected=1 ;;
-                                    2) selected=3; break ;;
+                                        done; s_selected=1 ;;
+                                    2) break ;;
                                 esac ;;
                         esac
-                    done ;;
-                4) clear; exit ;;
+                    done; selected=4 ;;
+                5) clear; exit ;;
             esac ;;
     esac
 done
