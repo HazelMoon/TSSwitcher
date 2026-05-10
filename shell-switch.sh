@@ -120,9 +120,18 @@ while true; do
         $'\x1b[B') ((selected++)); [ "$selected" -gt 4 ] && selected=0 ;;
         "") 
             case $selected in
-                0) ! is_installed "v4" && manage_pkg "install" "v4"; qs -c noctalia-shell > /dev/null 2>&1 &; disown; clear; exit ;;
-                1) ! is_installed "v5" && manage_pkg "install" "v5"; noctalia > /dev/null 2>&1 &; disown; clear; exit ;;
-                2) ! is_installed "dank" && manage_pkg "install" "dank"; dms run > /dev/null 2>&1 &; disown; clear; exit ;;
+                0) 
+                    ! is_installed "v4" && manage_pkg "install" "v4"
+                    qs -c noctalia-shell > /dev/null 2>&1 & 
+                    disown && clear && exit ;;
+                1) 
+                    ! is_installed "v5" && manage_pkg "install" "v5"
+                    noctalia > /dev/null 2>&1 & 
+                    disown && clear && exit ;;
+                2) 
+                    ! is_installed "dank" && manage_pkg "install" "dank"
+                    dms run > /dev/null 2>&1 & 
+                    disown && clear && exit ;;
                 3)
                     clear
                     echo "1. Uninstall V4 | 2. Uninstall V5 | 3. Uninstall Dank | 4. Back"
