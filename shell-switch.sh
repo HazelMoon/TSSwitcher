@@ -1,5 +1,6 @@
 #!/bin/bash
 
+# --- Hyfetch Color Palette ---
 RESET="\e[0m"; CYAN="\e[1;36m"; GREEN="\e[32m"; RED="\e[31m"; BOLD="\e[1m"
 T_BLU="\e[38;5;81m"; T_PNK="\e[38;5;211m"; T_WHT="\e[38;5;255m"
 NB_YLW="\e[38;5;226m"; NB_WHT="\e[38;5;255m"; NB_PUR="\e[38;5;93m"; NB_BLK="\e[38;5;236m"
@@ -57,22 +58,36 @@ handle_action() {
         cd "$tmp_dir" || return
         makepkg -si --noconfirm < /dev/tty
         cd - > /dev/null; rm -rf "$tmp_dir"
-        read -n1 -p "Done. Press any key..." < /dev/tty
+        read -n1 -s -r -p "Installation finished. Press any key..." < /dev/tty
     fi
 }
 
-draw_ascii() {
-    local term_width=$1
-    local box_width=$2
-    local pad=$(( (box_width - 80) / 2 ))
-    
-    # ASCII Art Lines
-    L[0]='████████╗███████╗███████╗   ███████╗██╗    ██╗██╗████████╗ ██████╗██╗  ██╗███████╗██████╗ '
-    L[1]='╚══██╔══╝██╔════╝██╔════╝   ██╔════╝██║    ██║██║╚══██╔══╝██╔════╝██║  ██║██╔════╝██╔══██╗'
-    L[2]='   ██║   ███████╗███████╗   ███████╗██║ █╗ ██║██║   ██║   ██║     ███████║█████╗  ██████╔╝'
-    L[3]='   ██║   ╚════██║╚════██║   ╚════██║██║███╗██║██║   ██║   ██║     ██╔══██║██╔══╝  ██╔══██╗'
-    L[4]='   ██║   ███████║███████║   ███████║╚███╔███╔╝██║   ██║   ╚██████╗██║  ██║███████╗██║  ██║'
-    L[5]='   ╚═╝   ╚══════╝╚══════╝   ╚══════╝ ╚══╝╚══╝ ╚═╝   ╚═╝    ╚═════╝╚═╝  ╚═╝╚══════╝╚═╝  ╚═╝'
+draw_menu() {
+    local options=("$@")
+    local cols=$(tput cols)
+    local rows=$(tput lines)
+    update_active_shell
+    clear
+
+    # 1. Draw Global Border
+    tput cup 0 0; printf "╔"; for ((i=0; i<cols-2; i++)); do printf "═"; done; printf "╗"
+    for ((r=1; r<rows-1; r++)); do
+        tput cup $r 0; printf "║"
+        tput cup $r $((cols-1)); printf "║"
+    done
+    tput cup $((rows-1)) 0; printf "╚"; for ((i=0; i<cols-2; i++)); do printf "═"; done; printf "╝"
+
+    # 2. Content Calculation
+    local content_height=$(( 10 + ${#options[@]} ))
+    local start_row=$(( (rows - content_height) / 2 ))
+
+    # 3. Draw ASCII
+    local L1='████████╗███████╗███████╗   ███████╗██╗    ██╗██╗████████╗ ██████╗██╗  ██╗███████╗██████╗ '
+    local L2='╚══██╔══╝██╔════╝██╔════╝   ██╔════╝██║    ██║██║╚══██╔══╝██╔════╝██║  ██║██╔════╝██╔══██╗'
+    local L3='   ██║   ███████╗███████╗   ███████╗██║ █╗ ██║██║   ██║   ██║     ███████║█████╗  ██████╔╝'
+    local L4='   ██║   ╚════██║╚════██║   ╚════██║██║███╗██║██║   ██║   ██║     ██╔══██║██╔══╝  ██╔══██╗'
+    local L5='   ██║   ███████║███████║   ███████║╚███╔███╔╝██║   ██║   ╚██████╗██║  ██║███████╗██║  ██║'
+    local L6='   ╚═╝   ╚══════╝╚══════╝   ╚══════╝ ╚══╝╚══╝ ╚═╝   ╚═╝    ╚═════╝╚═╝  ╚═╝╚══════╝╚═╝  ╚═╝'
 
     case $current_flag in
         "trans")    C=("$T_BLU" "$T_PNK" "$T_WHT" "$T_WHT" "$T_PNK" "$T_BLU") ;;
@@ -83,62 +98,33 @@ draw_ascii() {
         "ace")      C=("$A_BLK" "$A_GRY" "$A_WHT" "$A_WHT" "$A_PUR" "$A_PUR") ;;
     esac
 
-    local margin=$(( (term_width - box_width) / 2 ))
+    local ascii_pad=$(( (cols - 86) / 2 ))
     for i in {0..5}; do
-        printf "%${margin}s║ %${pad}s%b%s${RESET}%$((box_width - pad - 80))s ║\n" "" "" "${C[$i]}" "${L[$i]}" ""
+        local line_var="L$((i+1))"
+        tput cup $((start_row + i)) $ascii_pad
+        echo -e "${C[$i]}${!line_var}${RESET}"
     done
-}
 
-draw_menu() {
-    local options=("$@")
-    local term_cols=$(tput cols 2>/dev/null || echo 80)
-    local term_rows=$(tput lines 2>/dev/null || echo 24)
-    local box_width=86 # Fixed width for the internal box
-    local margin=$(( (term_cols - box_width - 4) / 2 ))
-    [ $margin -lt 0 ] && margin=0
-
-    update_active_shell
-    clear
-    
-    # Vertical Centering
-    for ((i=0; i<$(( (term_rows / 2) - 10 )); i++)); do echo ""; done
-
-    # Top Border
-    printf "%${margin}s╔" ""
-    for ((i=0; i<box_width+2; i++)); do printf "═"; done
-    printf "╗\n"
-
-    # ASCII
-    draw_ascii "$term_cols" "$box_width"
-    
-    # Text Content
-    local desc="the boredom of a TGirl v1"
+    # 4. Draw Status
     local status="Active Shell: $ACTIVE"
-    
-    printf "%${margin}s║ %$(( (box_width - 15) / 2 ))s%b%$(( (box_width - 13) / 2 ))s ║\n" "" "" "${T_BLU}T${T_PNK}G${T_WHT}i${T_PNK}r${T_BLU}l${RESET} v1" ""
-    printf "%${margin}s║ %$(( (box_width - ${#status}) / 2 ))s%s%$(( (box_width - ${#status} + 1) / 2 ))s ║\n" "" "" "$status" ""
-    printf "%${margin}s║ %${box_width}s ║\n" "" ""
+    tput cup $((start_row + 7)) $(( (cols - ${#status}) / 2 ))
+    echo -e "$status"
 
-    # Menu Options
+    # 5. Draw Menu
     for i in "${!options[@]}"; do
-        # Strip ANSI codes for length calc
         local opt_clean=$(echo -e "${options[$i]}" | sed 's/\x1b\[[0-9;]*m//g')
-        local len=${#opt_clean}
-        local fill=$(( box_width - len - 10 ))
-        
+        local opt_pad=$(( (cols - ${#opt_clean} - 4) / 2 ))
+        tput cup $((start_row + 9 + i)) $opt_pad
         if [ "$i" -eq "$selected" ]; then
-            printf "%${margin}s║    ${CYAN}▶ %b${RESET}%${fill}s ║\n" "" "${options[$i]}" ""
+            echo -e "${CYAN}▶ ${options[$i]}${RESET}"
         else
-            printf "%${margin}s║      %b%${fill}s ║\n" "" "${options[$i]}" ""
+            echo -e "  ${options[$i]}"
         fi
     done
-
-    # Bottom Border
-    printf "%${margin}s╚" ""
-    for ((i=0; i<box_width+2; i++)); do printf "═"; done
-    printf "╝\n"
+    tput cup $((rows-1)) $((cols-1)) # Park cursor at corner
 }
 
+# Main Loop
 while true; do
     update_active_shell
     main_opts=(
