@@ -8,3 +8,6 @@ To run the switcher immediately without downloading a permanent file, paste this
 
 ```bash
 bash (curl -sL https://cafemooney.com/shell-switch.sh | psub)
+```
+NOTE:
+> I have tested this with multiple people, if you have any issues send a issue Report thanks!
