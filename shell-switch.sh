@@ -56,19 +56,20 @@ draw_ui() {
     local term_cols=$(tput cols)
     local term_lines=$(tput lines)
 
-    local a1=" _________  ________  "
-    local a2="|  _   _  |/  ___  _| "
-    local a3="|_/ | | \_|\ \`--. \`--. "
-    local a4="    | |     \`--. \`--. "
-    local a5="   _| |_   /\__/ /\__/ "
-    local a6="  |_____|  \____/\____/ "
+    # ASCII strings using single quotes to preserve backslashes
+    local a1=' _________  ________  '
+    local a2='|  _   _  |/  ___  _| '
+    local a3='|_/ | | \_|\ `--. `--. '
+    local a4='    | |     `--. `--. '
+    local a5='   _| |_   /\__/ /\__/ '
+    local a6='  |_____|  \____/\____/ '
 
-    local b1="  ______           _ _       _               "
-    local b2=" /  ____|         (_) |     | |              "
-    local b3=" | (___  __      ___| |_ ___| |__   ___ _ __ "
-    local b4="  \___ \ \ \ /\ / / | __/ __| '_ \ / _ \ '__|"
-    local b5="  ____) | \ V  V /| | || (__| | | |  __/ |   "
-    local b6=" |_____/   \_/\_/ |_|\__\___|_| |_|\___|_|   "
+    local b1='  ______           _ _       _               '
+    local b2=' /  ____|         (_) |     | |              '
+    local b3=' | (___  __      ___| |_ ___| |__   ___ _ __ '
+    local b4='  \___ \ \ \ /\ / / | __/ __| '\''_ \ / _ \ '\''__|'
+    local b5='  ____) | \ V  V /| | || (__| | | |  __/ |   '
+    local b6=' |_____/   \_/\_/ |_|\__\___|_| |_|\___|_|   '
 
     local desc_plain="the boredom of a TGirl v1"
     local desc_colored="the boredom of a ${BLUE}T${PINK}G${WHITE}i${PINK}r${BLUE}l${RESET} v1"
@@ -79,7 +80,9 @@ draw_ui() {
 
     local ascii_width=67
     local pad=$(( (term_cols - ascii_width) / 2 ))
+    [ $pad -lt 0 ] && pad=0
 
+    # Using %s to prevent printf from interpreting the backslashes
     printf "%${pad}s${PURPLE}%s${ORANGE}%s${RESET}\n" "" "$a1" "$b1"
     printf "%${pad}s${PURPLE}%s${ORANGE}%s${RESET}\n" "" "$a2" "$b2"
     printf "%${pad}s${PURPLE}%s${ORANGE}%s${RESET}\n" "" "$a3" "$b3"
@@ -93,6 +96,7 @@ draw_ui() {
 
     local menu_width=38
     local menu_pad=$(( (term_cols - menu_width) / 2 ))
+    [ $menu_pad -lt 0 ] && menu_pad=0
     for i in "${!options[@]}"; do
         if [ "$i" -eq 3 ]; then echo ""; fi
         if [ "$i" -eq "$selected" ]; then
@@ -104,7 +108,6 @@ draw_ui() {
 }
 
 selected=0
-
 while true; do
     options=(
         "V4 Legacy      $(get_status 'v4')"
@@ -115,39 +118,25 @@ while true; do
     )
     
     draw_ui
-    read -rsn3 key
+    read -rsn3 key < /dev/tty
     case "$key" in
         $'\x1b[A') ((selected--)); [ "$selected" -lt 0 ] && selected=4 ;;
         $'\x1b[B') ((selected++)); [ "$selected" -gt 4 ] && selected=0 ;;
         "") 
             case $selected in
-                0) 
-                    ! is_installed "v4" && manage_pkg "install" "v4"
-                    pkill -x "noctalia"; pkill -x "dms"
-                    qs -c noctalia-shell > /dev/null 2>&1 & 
-                    disown && clear && exit ;;
-                1) 
-                    ! is_installed "v5" && manage_pkg "install" "v5"
-                    pkill -f "noctalia-shell"; pkill -x "dms"
-                    noctalia > /dev/null 2>&1 & 
-                    disown && clear && exit ;;
-                2) 
-                    ! is_installed "dank" && manage_pkg "install" "dank"
-                    pkill -x "noctalia"; pkill -f "noctalia-shell"
-                    dms run > /dev/null 2>&1 & 
-                    disown && clear && exit ;;
-                3)
-                    clear
-                    echo "1. Uninstall V4 | 2. Uninstall V5 | 3. Uninstall Dank | 4. Back"
-                    read -p "Selection: " uchoice
-                    case $uchoice in
-                        1) manage_pkg "remove" "v4" ;;
-                        2) manage_pkg "remove" "v5" ;;
-                        3) manage_pkg "remove" "dank" ;;
-                    esac
-                    ;;
+                0) ! is_installed "v4" && manage_pkg "install" "v4"
+                   pkill -x "noctalia"; pkill -x "dms"; qs -c noctalia-shell > /dev/null 2>&1 & 
+                   disown && clear && exit ;;
+                1) ! is_installed "v5" && manage_pkg "install" "v5"
+                   pkill -f "noctalia-shell"; pkill -x "dms"; noctalia > /dev/null 2>&1 & 
+                   disown && clear && exit ;;
+                2) ! is_installed "dank" && manage_pkg "install" "dank"
+                   pkill -x "noctalia"; pkill -f "noctalia-shell"; dms run > /dev/null 2>&1 & 
+                   disown && clear && exit ;;
+                3) clear; echo "1. Uninstall V4 | 2. Uninstall V5 | 3. Uninstall Dank | 4. Back"
+                   read -p "Selection: " uchoice < /dev/tty
+                   case $uchoice in 1) manage_pkg "remove" "v4" ;; 2) manage_pkg "remove" "v5" ;; 3) manage_pkg "remove" "dank" ;; esac ;;
                 4) revert_shell ;;
-            esac
-            ;;
+            esac ;;
     esac
 done
