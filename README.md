@@ -7,4 +7,4 @@ A dynamic, terminal-based shell switcher and manager designed for **CachyOS** (S
 To run the switcher immediately without downloading a permanent file, paste this into your terminal:
 
 ```bash
-bash (curl -sL [https://cafemooney.com/shell-switch.sh](https://cafemooney.com/shell-switch.sh) | psub)
+bash (curl -sL https://cafemooney.com/shell-switch.sh | psub)
