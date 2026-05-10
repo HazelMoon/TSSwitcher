@@ -8,6 +8,7 @@ B_PNK="\e[38;5;198m"; B_PUR="\e[38;5;129m"; B_BLU="\e[38;5;26m"
 P_PNK="\e[38;5;198m"; P_YLW="\e[38;5;226m"; P_BLU="\e[38;5;39m"
 A_BLK="\e[38;5;235m"; A_GRY="\e[38;5;246m"; A_WHT="\e[38;5;255m"; A_PUR="\e[38;5;93m"
 
+# State
 current_ascii="default"
 current_flag="trans"
 selected=0
@@ -61,22 +62,17 @@ handle_action() {
 }
 
 draw_ascii() {
-    local pad=$1
-    if [[ "$current_ascii" == "default" ]]; then
-        L1='████████╗███████╗███████╗   ███████╗██╗    ██╗██╗████████╗ ██████╗██╗  ██╗███████╗██████╗ '
-        L2='╚══██╔══╝██╔════╝██╔════╝   ██╔════╝██║    ██║██║╚══██╔══╝██╔════╝██║  ██║██╔════╝██╔══██╗'
-        L3='   ██║   ███████╗███████╗   ███████╗██║ █╗ ██║██║   ██║   ██║     ███████║█████╗  ██████╔╝'
-        L4='   ██║   ╚════██║╚════██║   ╚════██║██║███╗██║██║   ██║   ██║     ██╔══██║██╔══╝  ██╔══██╗'
-        L5='   ██║   ███████║███████║   ███████║╚███╔███╔╝██║   ██║   ╚██████╗██║  ██║███████╗██║  ██║'
-        L6='   ╚═╝   ╚══════╝╚══════╝   ╚══════╝ ╚══╝╚══╝ ╚═╝   ╚═╝    ╚═════╝╚═╝  ╚═╝╚══════╝╚═╝  ╚═╝'
-    else
-        L1='         ████████╗███████╗███████╗         '
-        L2='         ╚══██╔══╝██╔════╝██╔════╝         '
-        L3='            ██║   ███████╗███████╗         '
-        L4='            ██║   ╚════██║╚════██║         '
-        L5='            ██║   ███████║███████║         '
-        L6='            ╚═╝   ╚══════╝╚══════╝         '
-    fi
+    local term_width=$1
+    local box_width=$2
+    local pad=$(( (box_width - 80) / 2 ))
+    
+    # ASCII Art Lines
+    L[0]='████████╗███████╗███████╗   ███████╗██╗    ██╗██╗████████╗ ██████╗██╗  ██╗███████╗██████╗ '
+    L[1]='╚══██╔══╝██╔════╝██╔════╝   ██╔════╝██║    ██║██║╚══██╔══╝██╔════╝██║  ██║██╔════╝██╔══██╗'
+    L[2]='   ██║   ███████╗███████╗   ███████╗██║ █╗ ██║██║   ██║   ██║     ███████║█████╗  ██████╔╝'
+    L[3]='   ██║   ╚════██║╚════██║   ╚════██║██║███╗██║██║   ██║   ██║     ██╔══██║██╔══╝  ██╔══██╗'
+    L[4]='   ██║   ███████║███████║   ███████║╚███╔███╔╝██║   ██║   ╚██████╗██║  ██║███████╗██║  ██║'
+    L[5]='   ╚═╝   ╚══════╝╚══════╝   ╚══════╝ ╚══╝╚══╝ ╚═╝   ╚═╝    ╚═════╝╚═╝  ╚═╝╚══════╝╚═╝  ╚═╝'
 
     case $current_flag in
         "trans")    C=("$T_BLU" "$T_PNK" "$T_WHT" "$T_WHT" "$T_PNK" "$T_BLU") ;;
@@ -87,48 +83,59 @@ draw_ascii() {
         "ace")      C=("$A_BLK" "$A_GRY" "$A_WHT" "$A_WHT" "$A_PUR" "$A_PUR") ;;
     esac
 
+    local margin=$(( (term_width - box_width) / 2 ))
     for i in {0..5}; do
-        local line_var="L$((i+1))"
-        printf "║ %${pad}s%b%s${RESET} %$((pad+2))s ║\n" "" "${C[$i]}" "${!line_var}" ""
+        printf "%${margin}s║ %${pad}s%b%s${RESET}%$((box_width - pad - 80))s ║\n" "" "" "${C[$i]}" "${L[$i]}" ""
     done
 }
 
 draw_menu() {
     local options=("$@")
     local term_cols=$(tput cols 2>/dev/null || echo 80)
-    local inner_width=90
-    local pad=$(( (inner_width - 80) / 2 ))
-    
+    local term_rows=$(tput lines 2>/dev/null || echo 24)
+    local box_width=86 # Fixed width for the internal box
+    local margin=$(( (term_cols - box_width - 4) / 2 ))
+    [ $margin -lt 0 ] && margin=0
+
     update_active_shell
     clear
     
+    # Vertical Centering
+    for ((i=0; i<$(( (term_rows / 2) - 10 )); i++)); do echo ""; done
+
     # Top Border
-    printf "╔"
-    for ((i=0; i<inner_width+4; i++)); do printf "═"; done
+    printf "%${margin}s╔" ""
+    for ((i=0; i<box_width+2; i++)); do printf "═"; done
     printf "╗\n"
 
-    draw_ascii "$pad"
+    # ASCII
+    draw_ascii "$term_cols" "$box_width"
     
+    # Text Content
     local desc="the boredom of a TGirl v1"
     local status="Active Shell: $ACTIVE"
-    printf "║ %$(( (inner_width - 15) / 2 ))s%b%$(( (inner_width - 13) / 2 ))s ║\n" "" "${T_BLU}T${T_PNK}G${T_WHT}i${T_PNK}r${T_BLU}l${RESET} v1" ""
-    printf "║ %$(( (inner_width - ${#status}) / 2 ))s%s%$(( (inner_width - ${#status}) / 2 ))s ║\n" "" "$status" ""
-    printf "║ %$inner_width s ║\n" ""
+    
+    printf "%${margin}s║ %$(( (box_width - 15) / 2 ))s%b%$(( (box_width - 13) / 2 ))s ║\n" "" "" "${T_BLU}T${T_PNK}G${T_WHT}i${T_PNK}r${T_BLU}l${RESET} v1" ""
+    printf "%${margin}s║ %$(( (box_width - ${#status}) / 2 ))s%s%$(( (box_width - ${#status} + 1) / 2 ))s ║\n" "" "" "$status" ""
+    printf "%${margin}s║ %${box_width}s ║\n" "" ""
 
     # Menu Options
     for i in "${!options[@]}"; do
-        local opt_raw=$(echo "${options[$i]}" | sed 's/\\e\[[0-9;]*m//g') # Strip colors for length calc
-        local len=${#opt_raw}
+        # Strip ANSI codes for length calc
+        local opt_clean=$(echo -e "${options[$i]}" | sed 's/\x1b\[[0-9;]*m//g')
+        local len=${#opt_clean}
+        local fill=$(( box_width - len - 10 ))
+        
         if [ "$i" -eq "$selected" ]; then
-            printf "║    ${CYAN}▶ %b${RESET} %$(( inner_width - len - 6 ))s ║\n" "${options[$i]}" ""
+            printf "%${margin}s║    ${CYAN}▶ %b${RESET}%${fill}s ║\n" "" "${options[$i]}" ""
         else
-            printf "║      %b %$(( inner_width - len - 6 ))s ║\n" "${options[$i]}" ""
+            printf "%${margin}s║      %b%${fill}s ║\n" "" "${options[$i]}" ""
         fi
     done
 
     # Bottom Border
-    printf "╚"
-    for ((i=0; i<inner_width+4; i++)); do printf "═"; done
+    printf "%${margin}s╚" ""
+    for ((i=0; i<box_width+2; i++)); do printf "═"; done
     printf "╝\n"
 }
 
